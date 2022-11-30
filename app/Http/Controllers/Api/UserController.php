@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Car;
 use App\Models\User;
+use App\Models\UsersCars;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 
@@ -35,7 +37,15 @@ class UserController extends Controller
 
         if ($users) {
             foreach ($users as $user) {
-                $user->car_name = $user->carName($user->cars->car_id);
+                $car = UsersCars::where("user_id", $user->id)->first();
+                if ($car) {
+                    $caId = $car->car_id;
+                    $user->car_name = $user->carName($caId);
+                }
+                else {
+                    $user->car_name = null;
+                }
+
             }
         }
 
@@ -101,14 +111,12 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-
         try {
-
             $validateUser = Validator::make($request->all(),
                 [
                     "name"     => "required|string|max:255",
                     "email"    => "required|email|string|max:255|unique:users,email",
-                    'password' => "required|string|confirmed|min:6",
+                    'password' => "required|string|min:6",
                     'car_id'   => "required|unique:users_cars,car_id",
                 ]);
 
@@ -135,8 +143,8 @@ class UserController extends Controller
 
             return response()->json([
                 'status'  => true,
-                'message' => $user->id
-            ], 200);
+                'message' => $user
+            ], 201);
 
         } catch (\Throwable $th) {
             return response()->json([
@@ -183,27 +191,25 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = User::find($id);
-
-
-        $status = false;
-
-
-        if ($user) {
-            $status = true;
-            $user->car;
+        try {
+            $user = User::with('car')->findOrFail($id);
             if ($user->car) {
                 $user->car->car_name = $user->carName($user->car->car_id);
             }
 
+
+            $statusCode = 200;
+            $message = $user;
+        } catch (\Throwable $e) {
+            $statusCode = 404;
+            $message = 'User not found';
         }
 
-        return response()->json([
-            'status'  => $status,
-            'message' => $user,
-        ], 200);
-    }
 
+        return response()->json([
+            'message' => $message,
+        ], $statusCode);
+    }
 
     /**
      * Update the specified resource in storage.
@@ -263,7 +269,7 @@ class UserController extends Controller
             if($user) {
                 $validateUser = Validator::make($request->all(),
                     [
-                        "name"   => "string|max:255"
+                        "name"   => "required|string|max:255"
                     ]);
 
                 if ($validateUser->fails()) {

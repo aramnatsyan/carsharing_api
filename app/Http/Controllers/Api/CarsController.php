@@ -7,6 +7,7 @@ use App\Models\Car;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\Translation\Exception\NotFoundResourceException;
 
 class CarsController extends Controller
 {
@@ -105,8 +106,8 @@ class CarsController extends Controller
 
             return response()->json([
                 'status'  => true,
-                'message' => $car->id
-            ], 200);
+                'message' => $car
+            ], 201);
 
         } catch (\Throwable $th) {
             return response()->json([
@@ -151,19 +152,20 @@ class CarsController extends Controller
      */
     public function show($id)
     {
-        $car = Car::find($id);
+        try {
+            $car = Car::findOrFail($id);
 
-
-        $status = false;
-
-        if ($car) {
-            $status = true;
+            $statusCode = 200;
+            $message = $car;
+        } catch (\Throwable $e) {
+            $statusCode = 404;
+            $message = 'Car not found';
         }
 
+
         return response()->json([
-            'status'  => $status,
-            'message' => $car,
-        ], 200);
+            'message' => $message,
+        ], $statusCode);
     }
 
     /**
@@ -216,7 +218,7 @@ class CarsController extends Controller
             if($car) {
                 $validateUser = Validator::make($request->all(),
                     [
-                        "name"   => "string|max:255"
+                        "name"   => "required|string|max:255"
                     ]);
 
                 if ($validateUser->fails()) {
@@ -232,7 +234,7 @@ class CarsController extends Controller
 
                 return response()->json([
                     'status'  => true,
-                    'message' => $car->id
+                    'message' => $car
                 ], 200);
             }
 
